@@ -1,0 +1,9 @@
+I would like to create a web application for organizing test tube blood samples
+the site should have functionality to create racks that have a custom name, row, and column size
+in each rack. 
+
+users can view, create, remove samples/
+each sample must have a unique id, comment(optional),location, created and modified date
+if users manually chose a location it cannot exceed the bounds of the rack size
+nor can they choose a location that is already occupied.
+users may delete samples however would like a history page where users can restore entires if needed 

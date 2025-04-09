@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Sample Tracker</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Inter', sans-serif; /* Default Tailwind font */
+        }
+        /* Style for the grid cells */
+        .grid-cell {
+            border: 1px solid #d1d5db; /* gray-300 */
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem; /* text-xs */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            overflow: hidden; /* Prevent text overflow */
+            text-overflow: ellipsis; /* Add ellipsis for long text */
+            white-space: nowrap; /* Keep text on one line */
+            padding: 0 2px; /* Add slight padding */
+        }
+        .grid-cell.empty:hover {
+            background-color: #e0f2fe; /* sky-100 */
+        }
+        .grid-cell.occupied {
+            background-color: #bfdbfe; /* blue-200 */
+            font-weight: 500; /* medium */
+            cursor: default; /* Change cursor for occupied cells */
+        }
+        .grid-cell.occupied:hover {
+            background-color: #93c5fd; /* blue-300 */
+        }
+        /* Modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5); /* Dim background */
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem; /* p-8 */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+            max-width: 500px;
+            width: 90%;
+        }
+        .modal.active {
+            display: flex; /* Show when active */
+        }
+        /* Simple Tab Styling */
+        .tab-button.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        /* Ensure icons in buttons are aligned */
+        button i[data-lucide] {
+            vertical-align: middle;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div class="container mx-auto max-w-6xl bg-white p-6 rounded-lg shadow-md">
+        <div class="flex justify-between items-center mb-6 border-b pb-3">
+            <h1 class="text-3xl font-bold text-gray-800">Blood Sample Tracker</h1>
+            <div class="flex space-x-2">
+                 <button id="import-data-button" title="Import Data from JSON File" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <i data-lucide="upload" class="mr-2 h-4 w-4"></i> Import
+                </button>
+                <button id="export-data-button" title="Export Data to JSON File" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <i data-lucide="download" class="mr-2 h-4 w-4"></i> Export
+                </button>
+                <input type="file" id="import-file-input" accept=".json" class="hidden">
+            </div>
+        </div>
+
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button id="tab-main" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="main-content">
+                    Racks & Samples
+                </button>
+                 <button id="tab-manage-racks" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="manage-racks-content">
+                    Manage Racks
+                </button>
+                <button id="tab-history" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-target="history-content">
+                    History (Samples)
+                </button>
+            </nav>
+        </div>
+
+        <div id="main-content" class="tab-pane active">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-1 space-y-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-3 text-gray-700">Select Rack</h2>
+                        <div id="rack-list-main" class="space-y-2 max-h-96 overflow-y-auto bg-gray-50 p-3 rounded-md border">
+                            <p class="text-gray-500 italic">No racks available. Go to 'Manage Racks' to create one or import data.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 space-y-6">
+                    <div id="selected-rack-view" class="bg-gray-50 p-4 rounded-md border min-h-[200px]">
+                        <h2 id="rack-title" class="text-xl font-semibold mb-3 text-gray-700">Select a Rack</h2>
+                        <div id="rack-grid" class="grid gap-1 mb-4" style="grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));">
+                            <p class="text-gray-500 italic col-span-full">Select a rack from the list to view its grid.</p>
+                        </div>
+                         <button id="add-sample-button" class="hidden mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <i data-lucide="flask-conical" class="mr-2 h-5 w-5"></i> Add Sample to this Rack
+                        </button>
+                    </div>
+
+                    <div id="sample-details" class="bg-blue-50 p-4 rounded-md border border-blue-200 hidden">
+                        <h3 class="text-lg font-semibold mb-2 text-blue-800">Sample Details</h3>
+                        <p><strong>ID:</strong> <span id="detail-sample-id"></span></p>
+                        <p><strong>Location:</strong> Rack <span id="detail-rack-name"></span>, Row <span id="detail-row"></span>, Col <span id="detail-col"></span></p>
+                        <p><strong>Comment:</strong> <span id="detail-comment"></span></p>
+                        <p><strong>Created:</strong> <span id="detail-created"></span></p>
+                        <p><strong>Modified:</strong> <span id="detail-modified"></span></p>
+                        <button id="delete-sample-button" class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            <i data-lucide="trash-2" class="mr-1 h-4 w-4"></i> Delete Sample
+                        </button>
+                         <button id="close-details-button" class="mt-3 ml-2 inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="manage-racks-content" class="tab-pane hidden">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Manage Racks</h2>
+            <button id="add-rack-button" class="mb-6 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <i data-lucide="plus-circle" class="mr-2 h-5 w-5"></i> Create New Rack
+            </button>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dimensions</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manage-rack-table-body" class="bg-white divide-y divide-gray-200">
+                        <tr id="no-racks-manage-row">
+                            <td colspan="4" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 italic text-center">No racks created yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <div id="history-content" class="tab-pane hidden">
+             <h2 class="text-xl font-semibold mb-4 text-gray-700">Deleted Samples History</h2>
+             <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Location</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Deleted</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body" class="bg-white divide-y divide-gray-200">
+                        <tr id="no-history-row">
+                            <td colspan="5" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 italic text-center">No deleted samples found.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div> <div id="add-rack-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Create New Rack</h3>
+            <form id="add-rack-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="add-rack-name" class="block text-sm font-medium text-gray-700">Rack Name</label>
+                        <input type="text" name="add-rack-name" id="add-rack-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., Freezer A - Shelf 1">
+                         <p id="add-rack-name-error" class="text-red-500 text-xs mt-1 hidden">Rack name already exists.</p>
+                    </div>
+                    <div>
+                        <label for="add-rack-rows" class="block text-sm font-medium text-gray-700">Number of Rows</label>
+                        <input type="number" name="add-rack-rows" id="add-rack-rows" required min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., 5">
+                    </div>
+                    <div>
+                        <label for="add-rack-cols" class="block text-sm font-medium text-gray-700">Number of Columns</label>
+                        <input type="number" name="add-rack-cols" id="add-rack-cols" required min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., 8">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="cancel-add-rack" class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Cancel</button>
+                    <button type="submit" class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Create Rack</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+     <div id="edit-rack-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Edit Rack</h3>
+            <form id="edit-rack-form">
+                 <input type="hidden" id="edit-rack-id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit-rack-name" class="block text-sm font-medium text-gray-700">Rack Name</label>
+                        <input type="text" name="edit-rack-name" id="edit-rack-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                        <p id="edit-rack-name-error" class="text-red-500 text-xs mt-1 hidden">Rack name already exists.</p>
+                    </div>
+                    <div>
+                        <label for="edit-rack-rows" class="block text-sm font-medium text-gray-700">Number of Rows</label>
+                        <input type="number" name="edit-rack-rows" id="edit-rack-rows" required min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit-rack-cols" class="block text-sm font-medium text-gray-700">Number of Columns</label>
+                        <input type="number" name="edit-rack-cols" id="edit-rack-cols" required min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                    </div>
+                     <p id="edit-rack-dimension-error" class="text-red-500 text-xs mt-1 hidden">Cannot reduce dimensions, samples exist outside new bounds.</p>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="cancel-edit-rack" class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Cancel</button>
+                    <button type="submit" class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <div id="add-sample-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Add New Sample to <span id="modal-rack-name" class="font-bold"></span></h3>
+            <form id="add-sample-form">
+                 <input type="hidden" id="sample-rack-id">
+                 <div class="space-y-4">
+                    <div>
+                        <label for="sample-unique-id" class="block text-sm font-medium text-gray-700">Unique Sample ID</label>
+                        <input type="text" name="sample-unique-id" id="sample-unique-id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., BS2025-001">
+                        <p id="sample-id-error" class="text-red-500 text-xs mt-1 hidden">This Sample ID is already in use.</p>
+                    </div>
+                     <div>
+                        <label for="sample-row" class="block text-sm font-medium text-gray-700">Row</label>
+                        <input type="number" name="sample-row" id="sample-row" required min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Enter row number">
+                    </div>
+                     <div>
+                        <label for="sample-col" class="block text-sm font-medium text-gray-700">Column</label>
+                        <input type="number" name="sample-col" id="sample-col" required min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Enter column number">
+                    </div>
+                     <p id="location-error" class="text-red-500 text-xs mt-1 hidden">Invalid or occupied location.</p>
+                     <div>
+                        <label for="sample-comment" class="block text-sm font-medium text-gray-700">Comment (Optional)</label>
+                        <textarea name="sample-comment" id="sample-comment" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Add any relevant notes..."></textarea>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="cancel-add-sample" class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Cancel</button>
+                    <button type="submit" class="inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Add Sample</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="message-box" class="fixed bottom-4 right-4 z-50 hidden rounded-md p-4 shadow-lg" role="alert">
+        <p id="message-text"></p>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const rackListMainEl = document.getElementById('rack-list-main'); // Renamed for clarity
+            const addRackButton = document.getElementById('add-rack-button'); // Now in Manage Racks tab
+            const addRackModal = document.getElementById('add-rack-modal');
+            const addRackForm = document.getElementById('add-rack-form');
+            const cancelAddRackButton = document.getElementById('cancel-add-rack');
+            const addRackNameInput = document.getElementById('add-rack-name');
+            const addRackNameError = document.getElementById('add-rack-name-error');
+
+
+            const selectedRackViewEl = document.getElementById('selected-rack-view');
+            const rackTitleEl = document.getElementById('rack-title');
+            const rackGridEl = document.getElementById('rack-grid');
+            const addSampleButton = document.getElementById('add-sample-button');
+
+            const addSampleModal = document.getElementById('add-sample-modal');
+            const addSampleForm = document.getElementById('add-sample-form');
+            const cancelAddSampleButton = document.getElementById('cancel-add-sample');
+            const modalRackNameEl = document.getElementById('modal-rack-name');
+            const sampleRackIdInput = document.getElementById('sample-rack-id');
+            const sampleUniqueIdInput = document.getElementById('sample-unique-id');
+            const sampleRowInput = document.getElementById('sample-row');
+            const sampleColInput = document.getElementById('sample-col');
+            const sampleCommentInput = document.getElementById('sample-comment');
+            const sampleIdErrorEl = document.getElementById('sample-id-error');
+            const locationErrorEl = document.getElementById('location-error');
+
+            const sampleDetailsEl = document.getElementById('sample-details');
+            const detailSampleIdEl = document.getElementById('detail-sample-id');
+            const detailRackNameEl = document.getElementById('detail-rack-name');
+            const detailRowEl = document.getElementById('detail-row');
+            const detailColEl = document.getElementById('detail-col');
+            const detailCommentEl = document.getElementById('detail-comment');
+            const detailCreatedEl = document.getElementById('detail-created');
+            const detailModifiedEl = document.getElementById('detail-modified');
+            const deleteSampleButton = document.getElementById('delete-sample-button');
+            const closeDetailsButton = document.getElementById('close-details-button');
+
+            // Tab Content Panes
+            const mainContentEl = document.getElementById('main-content');
+            const manageRacksContentEl = document.getElementById('manage-racks-content');
+            const historyContentEl = document.getElementById('history-content');
+
+            // History Elements
+            const historyTableBodyEl = document.getElementById('history-table-body');
+            const noHistoryRowEl = document.getElementById('no-history-row');
+
+            // Tab Buttons
+            const tabMainButton = document.getElementById('tab-main');
+            const tabManageRacksButton = document.getElementById('tab-manage-racks');
+            const tabHistoryButton = document.getElementById('tab-history');
+
+            // Manage Racks Elements
+            const manageRackTableBodyEl = document.getElementById('manage-rack-table-body');
+            const noRacksManageRowEl = document.getElementById('no-racks-manage-row');
+            const editRackModal = document.getElementById('edit-rack-modal');
+            const editRackForm = document.getElementById('edit-rack-form');
+            const cancelEditRackButton = document.getElementById('cancel-edit-rack');
+            const editRackIdInput = document.getElementById('edit-rack-id');
+            const editRackNameInput = document.getElementById('edit-rack-name');
+            const editRackRowsInput = document.getElementById('edit-rack-rows');
+            const editRackColsInput = document.getElementById('edit-rack-cols');
+            const editRackNameError = document.getElementById('edit-rack-name-error');
+            const editRackDimensionError = document.getElementById('edit-rack-dimension-error');
+
+
+            const messageBoxEl = document.getElementById('message-box');
+            const messageTextEl = document.getElementById('message-text');
+
+            // Import/Export Elements
+            const importDataButton = document.getElementById('import-data-button');
+            const exportDataButton = document.getElementById('export-data-button');
+            const importFileInput = document.getElementById('import-file-input');
+
+
+            // --- State ---
+            let racks = [];
+            let samples = [];
+            let selectedRackId = null;
+            let selectedSampleId = null;
+
+            // --- Utility Functions ---
+            const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const formatDate = (isoString) => isoString ? new Date(isoString).toLocaleString() : 'N/A';
+
+            const showMessage = (text, type = 'success') => {
+                messageTextEl.textContent = text;
+                messageBoxEl.className = `fixed bottom-4 right-4 z-50 rounded-md p-4 shadow-lg ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+                messageBoxEl.classList.remove('hidden');
+                setTimeout(() => {
+                    messageBoxEl.classList.add('hidden');
+                }, 3500); // Slightly longer timeout
+            };
+
+            // --- Validation Functions ---
+            const isRackNameUnique = (name, rackIdToExclude = null) => {
+                 return !racks.some(r => r.name.toLowerCase() === name.trim().toLowerCase() && r.id !== rackIdToExclude);
+            };
+
+            const checkDimensionChangeImpact = (rackId, newRows, newCols) => {
+                // Find samples associated with this rack
+                const associatedSamples = samples.filter(s => s.rackId === rackId && !s.isDeleted);
+                // Check if any active sample is outside the new bounds
+                return associatedSamples.some(s => s.row > newRows || s.col > newCols);
+            };
+
+            const rackHasSamples = (rackId) => {
+                // Check if rack has ANY samples (active or deleted)
+                return samples.some(s => s.rackId === rackId);
+            };
+
+            // (Sample validation functions remain the same)
+            const isSampleIdUnique = (uniqueId, sampleIdToExclude = null) => {
+                return !samples.some(s => s.sampleUniqueId === uniqueId && !s.isDeleted && s.id !== sampleIdToExclude);
+            };
+            const isLocationValid = (rack, row, col) => {
+                if (!rack || typeof rack.rows !== 'number' || typeof rack.cols !== 'number') return false;
+                return row >= 1 && row <= rack.rows && col >= 1 && col <= rack.cols;
+            };
+            const isLocationOccupied = (rackId, row, col, sampleIdToExclude = null) => {
+                 return samples.some(s =>
+                    s.rackId === rackId &&
+                    s.row === row &&
+                    s.col === col &&
+                    !s.isDeleted &&
+                    s.id !== sampleIdToExclude
+                );
+            };
+
+            // --- Rendering Functions ---
+
+            // Renders the list in the MAIN tab (for selection)
+            const renderRackListMain = () => {
+                rackListMainEl.innerHTML = ''; // Clear existing list
+                if (racks.length === 0) {
+                    rackListMainEl.innerHTML = '<p class="text-gray-500 italic">No racks available. Go to \'Manage Racks\' to create one or import data.</p>';
+                    return;
+                }
+                racks.forEach(rack => {
+                    const rackDiv = document.createElement('div');
+                    rackDiv.className = `p-3 border rounded-md cursor-pointer hover:bg-gray-200 ${rack.id === selectedRackId ? 'bg-blue-100 border-blue-300' : 'bg-white'}`;
+                    rackDiv.dataset.rackId = rack.id;
+                    rackDiv.innerHTML = `
+                        <p class="font-medium text-gray-800">${rack.name}</p>
+                        <p class="text-sm text-gray-600">${rack.rows} x ${rack.cols}</p>
+                    `;
+                    rackDiv.addEventListener('click', () => selectRack(rack.id));
+                    rackListMainEl.appendChild(rackDiv);
+                });
+            };
+
+             // Renders the table in the MANAGE RACKS tab
+            const renderManageRackList = () => {
+                manageRackTableBodyEl.innerHTML = ''; // Clear existing table body
+                if (racks.length === 0) {
+                    if (noRacksManageRowEl) {
+                        manageRackTableBodyEl.appendChild(noRacksManageRowEl);
+                        noRacksManageRowEl.classList.remove('hidden');
+                    } else {
+                         manageRackTableBodyEl.innerHTML = '<tr><td colspan="4" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 italic text-center">No racks created yet.</td></tr>';
+                    }
+                    return;
+                }
+
+                if (noRacksManageRowEl) noRacksManageRowEl.classList.add('hidden');
+
+                racks.forEach(rack => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${rack.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${rack.rows} x ${rack.cols}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(rack.createdAt)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <button data-rack-id="${rack.id}" class="edit-rack-button text-indigo-600 hover:text-indigo-900" title="Edit Rack">
+                                <i data-lucide="edit" class="h-4 w-4 inline-block"></i> Edit
+                            </button>
+                            <button data-rack-id="${rack.id}" data-rack-name="${rack.name}" class="delete-rack-button text-red-600 hover:text-red-900" title="Delete Rack">
+                                <i data-lucide="trash-2" class="h-4 w-4 inline-block"></i> Delete
+                            </button>
+                        </td>
+                    `;
+                    manageRackTableBodyEl.appendChild(row);
+                });
+
+                // Add event listeners for edit/delete buttons
+                document.querySelectorAll('.edit-rack-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const rackId = e.currentTarget.dataset.rackId;
+                        openEditRackModal(rackId);
+                    });
+                });
+                document.querySelectorAll('.delete-rack-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const rackId = e.currentTarget.dataset.rackId;
+                        const rackName = e.currentTarget.dataset.rackName;
+                        deleteRack(rackId, rackName);
+                    });
+                });
+                 lucide.createIcons(); // Re-render icons
+            };
+
+
+            // (renderRackGrid and renderHistory remain largely the same)
+             const renderRackGrid = () => {
+                rackGridEl.innerHTML = '';
+                sampleDetailsEl.classList.add('hidden');
+                addSampleButton.classList.add('hidden');
+
+                if (!selectedRackId) {
+                    rackTitleEl.textContent = 'Select a Rack';
+                     rackGridEl.innerHTML = '<p class="text-gray-500 italic col-span-full">Select a rack from the list to view its grid.</p>';
+                    return;
+                }
+                const rack = racks.find(r => r.id === selectedRackId);
+                if (!rack) {
+                     rackTitleEl.textContent = 'Rack Not Found';
+                     rackGridEl.innerHTML = '<p class="text-red-500 italic col-span-full">Error: Could not find the selected rack.</p>';
+                     selectedRackId = null;
+                    return;
+                }
+                rackTitleEl.textContent = `Rack: ${rack.name} (${rack.rows}x${rack.cols})`;
+                addSampleButton.classList.remove('hidden');
+                rackGridEl.style.gridTemplateColumns = `repeat(${rack.cols}, minmax(50px, 1fr))`;
+                rackGridEl.style.gridTemplateRows = `repeat(${rack.rows}, minmax(50px, 1fr))`;
+                const rackSamples = samples.filter(s => s.rackId === selectedRackId && !s.isDeleted);
+                for (let r = 1; r <= rack.rows; r++) {
+                    for (let c = 1; c <= rack.cols; c++) {
+                        const cell = document.createElement('div');
+                        cell.classList.add('grid-cell');
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        const sampleInCell = rackSamples.find(s => s.row === r && s.col === c);
+                        if (sampleInCell) {
+                            cell.classList.add('occupied');
+                            cell.textContent = sampleInCell.sampleUniqueId;
+                            cell.title = `Sample: ${sampleInCell.sampleUniqueId}\nComment: ${sampleInCell.comment || 'None'}`;
+                            cell.style.cursor = 'pointer';
+                            cell.addEventListener('click', () => showSampleDetails(sampleInCell.id));
+                        } else {
+                            cell.classList.add('empty');
+                            cell.title = `Empty: R${r}C${c}`;
+                            cell.addEventListener('click', () => { openAddSampleModal(selectedRackId, r, c); });
+                        }
+                        rackGridEl.appendChild(cell);
+                    }
+                }
+            };
+             const renderHistory = () => {
+                historyTableBodyEl.innerHTML = '';
+                const deletedSamples = samples.filter(s => s.isDeleted).sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+                if (deletedSamples.length === 0) {
+                    if (noHistoryRowEl) { historyTableBodyEl.appendChild(noHistoryRowEl); noHistoryRowEl.classList.remove('hidden'); }
+                    else { historyTableBodyEl.innerHTML = '<tr><td colspan="5" class="px-6 py-4 ...">No deleted samples found.</td></tr>'; }
+                    return;
+                }
+                if (noHistoryRowEl) noHistoryRowEl.classList.add('hidden');
+                deletedSamples.forEach(sample => {
+                    const rack = racks.find(r => r.id === sample.rackId);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-6 py-4 ...">${sample.sampleUniqueId}</td>
+                        <td class="px-6 py-4 ...">${rack ? rack.name : 'Unknown Rack'} (R${sample.row}C${sample.col})</td>
+                        <td class="px-6 py-4 ... max-w-xs truncate" title="${sample.comment || ''}">${sample.comment || '-'}</td>
+                        <td class="px-6 py-4 ...">${formatDate(sample.deletedAt)}</td>
+                        <td class="px-6 py-4 ...">
+                            <button data-sample-id="${sample.id}" class="restore-button text-indigo-600 hover:text-indigo-900">Restore</button>
+                        </td>
+                    `;
+                    historyTableBodyEl.appendChild(row);
+                });
+                document.querySelectorAll('.restore-button').forEach(button => {
+                    button.addEventListener('click', (e) => { restoreSample(e.currentTarget.dataset.sampleId); });
+                });
+            };
+
+            // --- Refresh All Views ---
+            const refreshAllViews = () => {
+                 renderRackListMain(); // Render selection list in main tab
+                 renderManageRackList(); // Render table in manage tab
+                 renderRackGrid(); // Render grid (might be empty if selectedRackId is null/invalid)
+                 renderHistory(); // Render sample history
+                 lucide.createIcons(); // Ensure icons are rendered after updates
+            }
+
+            // --- Action Functions ---
+            const addRack = (name, rows, cols) => {
+                addRackNameError.classList.add('hidden'); // Hide error initially
+                if (!name || !rows || !cols || rows < 1 || cols < 1) {
+                    showMessage('Invalid rack details provided.', 'error');
+                    return;
+                }
+                if (!isRackNameUnique(name)) {
+                     addRackNameError.classList.remove('hidden');
+                    // showMessage(`Rack name "${name.trim()}" already exists.`, 'error'); // Show inline error instead
+                    return;
+                }
+
+                const newRack = {
+                    id: generateId(),
+                    name: name.trim(),
+                    rows: parseInt(rows, 10),
+                    cols: parseInt(cols, 10),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString() // Add updatedAt on creation
+                };
+                racks.push(newRack);
+                refreshAllViews(); // Update all relevant lists
+                closeModal(addRackModal);
+                showMessage(`Rack "${newRack.name}" created successfully.`);
+            };
+
+            const updateRack = (rackId, newName, newRows, newCols) => {
+                 editRackNameError.classList.add('hidden');
+                 editRackDimensionError.classList.add('hidden');
+
+                 const rackIndex = racks.findIndex(r => r.id === rackId);
+                 if (rackIndex === -1) {
+                     showMessage("Rack not found for editing.", "error");
+                     return false;
+                 }
+                 const originalRack = racks[rackIndex];
+                 newName = newName.trim();
+                 newRows = parseInt(newRows, 10);
+                 newCols = parseInt(newCols, 10);
+
+                 // Validate Name Uniqueness (excluding self)
+                 if (!isRackNameUnique(newName, rackId)) {
+                     editRackNameError.classList.remove('hidden');
+                     return false;
+                 }
+
+                 // Validate Dimensions
+                 if (!newName || !newRows || !newCols || newRows < 1 || newCols < 1) {
+                    showMessage('Invalid rack details provided.', 'error');
+                    return false;
+                 }
+
+                 // Validate Dimension Reduction Impact
+                 if (newRows < originalRack.rows || newCols < originalRack.cols) {
+                     if (checkDimensionChangeImpact(rackId, newRows, newCols)) {
+                         editRackDimensionError.classList.remove('hidden');
+                         return false;
+                     }
+                 }
+
+                 // All checks passed, update the rack
+                 racks[rackIndex] = {
+                     ...originalRack, // Keep original ID and createdAt
+                     name: newName,
+                     rows: newRows,
+                     cols: newCols,
+                     updatedAt: new Date().toISOString() // Update timestamp
+                 };
+
+                 refreshAllViews(); // Update lists and potentially the grid if it was selected
+                 closeModal(editRackModal);
+                 showMessage(`Rack "${newName}" updated successfully.`);
+                 return true;
+            };
+
+             const deleteRack = (rackId, rackName) => {
+                // Prevent deletion if the rack contains any samples
+                if (rackHasSamples(rackId)) {
+                    showMessage(`Cannot delete rack "${rackName}": it contains samples. Please remove all samples first.`, 'error');
+                    return;
+                }
+
+                // Confirmation dialog
+                if (confirm(`Are you sure you want to permanently delete the empty rack "${rackName}"? This action cannot be undone.`)) {
+                    racks = racks.filter(r => r.id !== rackId); // Remove the rack
+
+                    // If the deleted rack was selected, deselect it
+                    if (selectedRackId === rackId) {
+                        selectedRackId = null;
+                    }
+
+                    refreshAllViews(); // Update UI
+                    showMessage(`Rack "${rackName}" deleted successfully.`);
+                }
+            };
+
+
+            const selectRack = (rackId) => {
+                selectedRackId = rackId;
+                selectedSampleId = null; // Clear selected sample when rack changes
+                renderRackListMain(); // Re-render main list to highlight selection
+                renderRackGrid(); // Render the grid for the selected rack
+            };
+
+            // (addSample, showSampleDetails, deleteSample, restoreSample remain the same)
+             const addSample = (rackId, uniqueId, comment, row, col) => {
+                 const rack = racks.find(r => r.id === rackId);
+                 if (!rack) { showMessage('Selected rack not found.', 'error'); return false; }
+                 row = parseInt(row, 10); col = parseInt(col, 10); uniqueId = uniqueId.trim();
+                 sampleIdErrorEl.classList.add('hidden'); locationErrorEl.classList.add('hidden');
+                 if (!isSampleIdUnique(uniqueId)) { sampleIdErrorEl.textContent = `Sample ID "${uniqueId}" is already in use...`; sampleIdErrorEl.classList.remove('hidden'); showMessage('Sample ID validation failed.', 'error'); return false; }
+                 let locationValid = true;
+                 if (!isLocationValid(rack, row, col)) { locationErrorEl.textContent = `Location R${row}C${col} is outside bounds...`; locationValid = false; }
+                 else if (isLocationOccupied(rackId, row, col)) { locationErrorEl.textContent = `Location R${row}C${col} is occupied.`; locationValid = false; }
+                 if (!locationValid) { locationErrorEl.classList.remove('hidden'); showMessage('Location validation failed.', 'error'); return false; }
+                 const now = new Date().toISOString();
+                 const newSample = { id: generateId(), sampleUniqueId: uniqueId, comment: comment.trim() || null, rackId: rackId, row: row, col: col, createdAt: now, updatedAt: now, isDeleted: false, deletedAt: null };
+                 samples.push(newSample);
+                 renderRackGrid(); closeModal(addSampleModal); showMessage(`Sample "${uniqueId}" added successfully...`); return true;
+            };
+             const showSampleDetails = (sampleId) => {
+                const sample = samples.find(s => s.id === sampleId && !s.isDeleted);
+                if (!sample) { sampleDetailsEl.classList.add('hidden'); selectedSampleId = null; return; }
+                const rack = racks.find(r => r.id === sample.rackId);
+                selectedSampleId = sample.id;
+                detailSampleIdEl.textContent = sample.sampleUniqueId; detailRackNameEl.textContent = rack ? rack.name : 'Unknown'; detailRowEl.textContent = sample.row; detailColEl.textContent = sample.col; detailCommentEl.textContent = sample.comment || 'None'; detailCreatedEl.textContent = formatDate(sample.createdAt); detailModifiedEl.textContent = formatDate(sample.updatedAt);
+                sampleDetailsEl.classList.remove('hidden');
+            };
+             const deleteSample = (sampleId) => {
+                const sampleIndex = samples.findIndex(s => s.id === sampleId);
+                if (sampleIndex === -1 || samples[sampleIndex].isDeleted) return;
+                samples[sampleIndex].isDeleted = true; samples[sampleIndex].deletedAt = new Date().toISOString(); samples[sampleIndex].updatedAt = samples[sampleIndex].deletedAt;
+                selectedSampleId = null; sampleDetailsEl.classList.add('hidden'); renderRackGrid(); renderHistory(); showMessage(`Sample "${samples[sampleIndex].sampleUniqueId}" deleted.`);
+            };
+            const restoreSample = (sampleId) => {
+                const sampleIndex = samples.findIndex(s => s.id === sampleId);
+                if (sampleIndex === -1 || !samples[sampleIndex].isDeleted) { showMessage('Sample not found or not deleted.', 'error'); return; }
+                const sample = samples[sampleIndex]; const rack = racks.find(r => r.id === sample.rackId);
+                if (isLocationOccupied(sample.rackId, sample.row, sample.col)) { showMessage(`Cannot restore: Location R${sample.row}C${sample.col} in rack "${rack?.name || 'Unknown'}" is now occupied.`, 'error'); return; }
+                samples[sampleIndex].isDeleted = false; samples[sampleIndex].deletedAt = null; samples[sampleIndex].updatedAt = new Date().toISOString();
+                renderHistory(); if (sample.rackId === selectedRackId) { renderRackGrid(); } showMessage(`Sample "${sample.sampleUniqueId}" restored successfully.`);
+            };
+
+
+            // --- Import/Export Functions (remain the same) ---
+            const exportDataToFile = () => {
+                if (racks.length === 0 && samples.length === 0) { showMessage("No data to export.", "error"); return; }
+                const dataToExport = { racks: racks, samples: samples };
+                const dataStr = JSON.stringify(dataToExport, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const tempLink = document.createElement('a'); tempLink.href = url; tempLink.setAttribute('download', 'blood_sample_data.json'); tempLink.click();
+                URL.revokeObjectURL(url); showMessage("Data exported successfully.");
+            };
+            const importDataFromFile = (event) => {
+                const file = event.target.files[0]; if (!file) { return; }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (Array.isArray(importedData.racks) && Array.isArray(importedData.samples)) {
+                            racks = importedData.racks; samples = importedData.samples;
+                            selectedRackId = null; selectedSampleId = null;
+                            refreshAllViews(); // Refresh all after import
+                            showMessage("Data imported successfully.");
+                        } else { showMessage("Invalid file format: Missing 'racks' or 'samples' array.", "error"); }
+                    } catch (error) { showMessage(`Error parsing file: ${error.message}`, "error"); console.error("Import error:", error); }
+                    finally { event.target.value = null; }
+                };
+                reader.onerror = (e) => { showMessage("Error reading file.", "error"); event.target.value = null; };
+                reader.readAsText(file);
+            };
+
+
+            // --- Modal Handling ---
+            const openModal = (modal) => {
+                // Clear previous errors when opening
+                 modal.querySelectorAll('.text-red-500').forEach(el => el.classList.add('hidden'));
+                modal.classList.add('active');
+            };
+            const closeModal = (modal) => {
+                modal.classList.remove('active');
+                const form = modal.querySelector('form');
+                if (form) form.reset();
+                 modal.querySelectorAll('.text-red-500').forEach(el => el.classList.add('hidden'));
+            };
+
+            const openAddSampleModal = (rackId, prefillRow = null, prefillCol = null) => {
+                const rack = racks.find(r => r.id === rackId); if (!rack) return;
+                modalRackNameEl.textContent = rack.name; sampleRackIdInput.value = rackId;
+                sampleRowInput.value = prefillRow || ''; sampleColInput.value = prefillCol || '';
+                openModal(addSampleModal);
+            };
+
+            const openEditRackModal = (rackId) => {
+                const rack = racks.find(r => r.id === rackId);
+                if (!rack) {
+                    showMessage("Rack not found.", "error");
+                    return;
+                }
+                editRackIdInput.value = rack.id;
+                editRackNameInput.value = rack.name;
+                editRackRowsInput.value = rack.rows;
+                editRackColsInput.value = rack.cols;
+                 // Clear previous errors
+                 editRackNameError.classList.add('hidden');
+                 editRackDimensionError.classList.add('hidden');
+                openModal(editRackModal);
+            };
+
+            // --- Tab Navigation ---
+             const switchTab = (targetId) => {
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+                document.getElementById(targetId).classList.remove('hidden');
+
+                document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+                document.querySelector(`.tab-button[data-target='${targetId}']`).classList.add('active');
+
+                // Refresh lists when switching to their respective tabs
+                if (targetId === 'manage-racks-content') {
+                    renderManageRackList();
+                } else if (targetId === 'history-content') {
+                    renderHistory();
+                } else if (targetId === 'main-content') {
+                     renderRackListMain(); // Refresh main selection list
+                     renderRackGrid(); // Refresh grid based on current selection
+                }
+            };
+
+
+            // --- Event Listeners ---
+            // Add Rack (now in Manage Racks tab)
+            addRackButton.addEventListener('click', () => openModal(addRackModal));
+            cancelAddRackButton.addEventListener('click', () => closeModal(addRackModal));
+            addRackForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = addRackNameInput.value; // Use correct ID
+                const rows = document.getElementById('add-rack-rows').value;
+                const cols = document.getElementById('add-rack-cols').value;
+                addRack(name, rows, cols);
+            });
+
+             // Edit Rack
+            cancelEditRackButton.addEventListener('click', () => closeModal(editRackModal));
+            editRackForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const rackId = editRackIdInput.value;
+                const name = editRackNameInput.value;
+                const rows = editRackRowsInput.value;
+                const cols = editRackColsInput.value;
+                updateRack(rackId, name, rows, cols);
+            });
+
+            // Add Sample (still triggered from main tab)
+            addSampleButton.addEventListener('click', () => {
+                if(selectedRackId) openAddSampleModal(selectedRackId);
+            });
+            cancelAddSampleButton.addEventListener('click', () => closeModal(addSampleModal));
+            addSampleForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const rackId = sampleRackIdInput.value; const uniqueId = sampleUniqueIdInput.value;
+                const row = sampleRowInput.value; const col = sampleColInput.value; const comment = sampleCommentInput.value;
+                addSample(rackId, uniqueId, comment, row, col);
+            });
+
+            // Delete Sample (still triggered from main tab details)
+            deleteSampleButton.addEventListener('click', () => {
+                if (selectedSampleId) {
+                     const sampleToDelete = samples.find(s => s.id === selectedSampleId);
+                     const sampleNameToConfirm = sampleToDelete ? sampleToDelete.sampleUniqueId : 'this sample';
+                    if (confirm(`Are you sure you want to delete sample ${sampleNameToConfirm}?`)) { // Removed warning about import as it's sample history
+                        deleteSample(selectedSampleId);
+                    }
+                }
+            });
+             closeDetailsButton.addEventListener('click', () => {
+                sampleDetailsEl.classList.add('hidden');
+                selectedSampleId = null;
+            });
+
+            // Tab switching listeners
+            tabMainButton.addEventListener('click', () => switchTab('main-content'));
+            tabManageRacksButton.addEventListener('click', () => switchTab('manage-racks-content'));
+            tabHistoryButton.addEventListener('click', () => switchTab('history-content'));
+
+            // Import/Export Listeners
+            exportDataButton.addEventListener('click', exportDataToFile);
+            importDataButton.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', importDataFromFile);
+
+
+            // Close modals if clicking outside the content
+            window.addEventListener('click', (event) => {
+                if (event.target === addRackModal) closeModal(addRackModal);
+                if (event.target === addSampleModal) closeModal(addSampleModal);
+                if (event.target === editRackModal) closeModal(editRackModal); // Close edit modal too
+            });
+
+            // --- Initial Load ---
+            refreshAllViews(); // Render initial empty state (or state after potential import)
+            lucide.createIcons(); // Initialize Lucide icons
+        });
+    </script>
+
+</body>
+</html>
