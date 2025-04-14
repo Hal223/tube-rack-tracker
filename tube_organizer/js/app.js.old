@@ -1,0 +1,723 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // --- State Variables ---
+    let racks = [];
+    let samples = [];
+    let history = [];
+    let currentRackId = null;
+    let selectedCell = null; // { row, col }
+
+    // --- DOM Elements ---
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const pageButtons = document.querySelectorAll('nav button');
+    const pages = document.querySelectorAll('.page');
+    const rackListPage = document.getElementById('racks-page');
+    const sampleListPage = document.getElementById('samples-page');
+    const historyListPage = document.getElementById('history-page');
+
+    // Rack Page Elements
+    const addRackBtn = document.getElementById('add-rack-btn');
+    const rackListDiv = document.getElementById('rack-list');
+    const rackModal = document.getElementById('rack-modal');
+    const rackModalTitle = document.getElementById('rack-modal-title');
+    const rackForm = document.getElementById('rack-form');
+    const rackIdInput = document.getElementById('rack-id-input');
+    const rackNameInput = document.getElementById('rack-name');
+    const rackRowsInput = document.getElementById('rack-rows');
+    const rackColsInput = document.getElementById('rack-cols');
+    const closeModalBtn = rackModal.querySelector('.close-btn');
+
+    // Sample Page Elements
+    const rackSelect = document.getElementById('rack-select');
+    const rackDisplayDiv = document.getElementById('rack-display');
+    const sampleIdInput = document.getElementById('sample-id-input');
+    const sampleCommentInput = document.getElementById('sample-comment-input');
+    const addSampleAutoBtn = document.getElementById('add-sample-auto-btn');
+    const sampleInfoDiv = document.getElementById('sample-info');
+    const sampleDetailsContent = document.getElementById('sample-details-content');
+    const removeSampleBtn = document.getElementById('remove-sample-btn');
+
+    // History Page Elements
+    const historyTableBody = document.getElementById('history-table-body');
+
+    // --- Constants ---
+    const RACKS_KEY = 'tubeOrganizer_racks';
+    const SAMPLES_KEY = 'tubeOrganizer_samples';
+    const HISTORY_KEY = 'tubeOrganizer_history';
+    const THEME_KEY = 'tubeOrganizer_theme';
+
+    // --- Initialization ---
+    loadData();
+    applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+    renderRackList();
+    renderRackOptions();
+    renderHistoryLog();
+    navigateTo('racks'); // Start on rack page
+
+    // --- Utility Functions ---
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+    }
+
+    function getCurrentTimestamp() {
+        return new Date().toISOString();
+    }
+
+    function saveData() {
+        localStorage.setItem(RACKS_KEY, JSON.stringify(racks));
+        localStorage.setItem(SAMPLES_KEY, JSON.stringify(samples));
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    }
+
+    function loadData() {
+        racks = JSON.parse(localStorage.getItem(RACKS_KEY) || '[]');
+        samples = JSON.parse(localStorage.getItem(SAMPLES_KEY) || '[]');
+        history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    }
+
+    function logHistory(action, entityType, entityId, details = '', previousState = null, currentState = null) {
+        const logEntry = {
+            id: generateId(),
+            timestamp: getCurrentTimestamp(),
+            action, // e.g., 'CREATE', 'MODIFY', 'DELETE'
+            entityType, // e.g., 'RACK', 'SAMPLE'
+            entityId, // ID of the rack or sample
+            details, // User-friendly description or name/location
+            previousState: previousState ? JSON.parse(JSON.stringify(previousState)) : null, // Deep copy
+            currentState: currentState ? JSON.parse(JSON.stringify(currentState)) : null // Deep copy
+        };
+        history.unshift(logEntry); // Add to the beginning
+        saveData();
+        renderHistoryLog(); // Update history view immediately
+    }
+
+    // --- Theme Management ---
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            document.body.classList.add('dark-mode');
+            themeToggleBtn.textContent = 'Toggle Light Mode';
+        } else {
+            document.body.classList.remove('dark-mode');
+            themeToggleBtn.textContent = 'Toggle Dark Mode';
+        }
+        localStorage.setItem(THEME_KEY, theme);
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+        applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    });
+
+    // --- Navigation ---
+    function navigateTo(pageId) {
+        pages.forEach(page => page.classList.remove('active'));
+        document.getElementById(`${pageId}-page`).classList.add('active');
+        // Highlight active nav button (optional)
+        pageButtons.forEach(btn => {
+            btn.style.fontWeight = btn.dataset.page === pageId ? 'bold' : 'normal';
+        });
+
+        // Reset sample page state when navigating away or changing racks
+        if (pageId !== 'samples') {
+             resetSamplePage();
+        }
+    }
+
+    pageButtons.forEach(button => {
+        button.addEventListener('click', () => navigateTo(button.dataset.page));
+    });
+
+    // --- Rack Management ---
+    function renderRackList() {
+        rackListDiv.innerHTML = ''; // Clear existing list
+        if (racks.length === 0) {
+            rackListDiv.innerHTML = '<p>No racks created yet.</p>';
+            return;
+        }
+        racks.forEach(rack => {
+            const card = document.createElement('div');
+            card.className = 'rack-card';
+            card.innerHTML = `
+                <h3>${rack.name}</h3>
+                <p>Dimensions: ${rack.rows} rows x ${rack.cols} columns</p>
+                <p><small>Created: ${new Date(rack.createdAt).toLocaleString()}</small></p>
+                <p><small>Modified: ${new Date(rack.modifiedAt).toLocaleString()}</small></p>
+                <div class="actions">
+                    <button class="edit-rack-btn" data-id="${rack.id}">Edit</button>
+                    <button class="delete-rack-btn" data-id="${rack.id}">Delete</button>
+                </div>
+            `;
+            rackListDiv.appendChild(card);
+        });
+
+        // Add event listeners after rendering
+        rackListDiv.querySelectorAll('.edit-rack-btn').forEach(btn => {
+            btn.addEventListener('click', handleEditRack);
+        });
+        rackListDiv.querySelectorAll('.delete-rack-btn').forEach(btn => {
+            btn.addEventListener('click', handleDeleteRack);
+        });
+    }
+
+    function openRackModal(rack = null) {
+        rackForm.reset();
+        if (rack) {
+            rackModalTitle.textContent = 'Edit Rack';
+            rackIdInput.value = rack.id;
+            rackNameInput.value = rack.name;
+            rackRowsInput.value = rack.rows;
+            rackColsInput.value = rack.cols;
+        } else {
+            rackModalTitle.textContent = 'Create Rack';
+            rackIdInput.value = ''; // Ensure hidden ID is clear for creation
+        }
+        rackModal.style.display = 'block';
+        rackNameInput.focus();
+    }
+
+    function closeRackModal() {
+        rackModal.style.display = 'none';
+    }
+
+    addRackBtn.addEventListener('click', () => openRackModal());
+    closeModalBtn.addEventListener('click', closeRackModal);
+    window.addEventListener('click', (event) => { // Close if clicked outside modal content
+        if (event.target === rackModal) {
+            closeRackModal();
+        }
+    });
+
+    rackForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = rackIdInput.value;
+        const name = rackNameInput.value.trim();
+        const rows = parseInt(rackRowsInput.value, 10);
+        const cols = parseInt(rackColsInput.value, 10);
+
+        if (!name || isNaN(rows) || rows < 1 || isNaN(cols) || cols < 1) {
+            alert('Please provide valid name, rows, and columns.');
+            return;
+        }
+
+        if (id) { // Editing existing rack
+            const rackIndex = racks.findIndex(r => r.id === id);
+            if (rackIndex > -1) {
+                const oldRack = { ...racks[rackIndex] }; // Copy for history
+                 // **Important:** Handle resizing - check if samples are outside new bounds
+                const affectedSamples = samples.filter(s => s.rackId === id && (s.row >= rows || s.col >= cols));
+                if (affectedSamples.length > 0) {
+                    if (!confirm(`Resizing this rack will remove ${affectedSamples.length} sample(s) outside the new bounds. Continue?`)) {
+                        return; // Abort if user cancels
+                    }
+                    // Remove affected samples before updating rack
+                    affectedSamples.forEach(sample => {
+                        const sampleIndex = samples.findIndex(s => s.id === sample.id);
+                        if (sampleIndex > -1) {
+                             const deletedSample = samples.splice(sampleIndex, 1)[0];
+                             logHistory('DELETE', 'SAMPLE', deletedSample.id, `Sample removed due to rack resize (Rack: ${name})`, deletedSample, null);
+                        }
+                    });
+                }
+
+                racks[rackIndex] = { ...oldRack, name, rows, cols, modifiedAt: getCurrentTimestamp() };
+                logHistory('MODIFY', 'RACK', id, `Rack modified: ${name}`, oldRack, racks[rackIndex]);
+            }
+        } else { // Creating new rack
+            const newRack = {
+                id: generateId(),
+                name,
+                rows,
+                cols,
+                createdAt: getCurrentTimestamp(),
+                modifiedAt: getCurrentTimestamp()
+            };
+            racks.push(newRack);
+            logHistory('CREATE', 'RACK', newRack.id, `Rack created: ${name}`, null, newRack);
+        }
+
+        saveData();
+        renderRackList();
+        renderRackOptions(); // Update dropdown on sample page
+        closeRackModal();
+        if (currentRackId === id) { // Re-render grid if the currently viewed rack was edited
+             renderRackGrid();
+        }
+    });
+
+    function handleEditRack(event) {
+        const id = event.target.dataset.id;
+        const rack = racks.find(r => r.id === id);
+        if (rack) {
+            openRackModal(rack);
+        }
+    }
+
+    function handleDeleteRack(event) {
+        const id = event.target.dataset.id;
+        const rackIndex = racks.findIndex(r => r.id === id);
+        if (rackIndex > -1) {
+            const rackToDelete = racks[rackIndex];
+            if (confirm(`Are you sure you want to delete rack "${rackToDelete.name}"? This will also delete ALL samples within it.`)) {
+                // Store rack state before deleting
+                const deletedRack = { ...rackToDelete };
+
+                 // Find and delete associated samples first
+                const samplesToDelete = samples.filter(s => s.rackId === id);
+                samples = samples.filter(s => s.rackId !== id); // Remove samples from main array
+
+                // Log deletion for each sample
+                samplesToDelete.forEach(sample => {
+                    logHistory('DELETE', 'SAMPLE', sample.id, `Sample deleted due to rack deletion (Rack: ${deletedRack.name})`, sample, null);
+                });
+
+                // Delete the rack
+                racks.splice(rackIndex, 1);
+                logHistory('DELETE', 'RACK', id, `Rack deleted: ${deletedRack.name}`, deletedRack, null);
+
+                saveData();
+                renderRackList();
+                renderRackOptions();
+                if (currentRackId === id) { // If the deleted rack was selected, clear the sample view
+                    resetSamplePage();
+                }
+            }
+        }
+    }
+
+    // --- Sample Management ---
+
+    function renderRackOptions() {
+        const currentVal = rackSelect.value;
+        rackSelect.innerHTML = '<option value="">-- Select a Rack --</option>'; // Clear existing options
+        racks.forEach(rack => {
+            const option = document.createElement('option');
+            option.value = rack.id;
+            option.textContent = `${rack.name} (${rack.rows}x${rack.cols})`;
+            rackSelect.appendChild(option);
+        });
+        // Try to restore previous selection if it still exists
+        if (racks.some(r => r.id === currentVal)) {
+             rackSelect.value = currentVal;
+        } else {
+             rackSelect.value = ""; // Reset if the previously selected rack is gone
+             resetSamplePage();
+        }
+    }
+
+    function resetSamplePage() {
+        currentRackId = null;
+        selectedCell = null;
+        rackDisplayDiv.innerHTML = '<p>Select a rack to view its grid.</p>';
+        sampleIdInput.value = '';
+        sampleCommentInput.value = '';
+        sampleIdInput.disabled = true;
+        sampleCommentInput.disabled = true;
+        addSampleAutoBtn.disabled = true;
+        sampleDetailsContent.innerHTML = 'Select a cell or add a sample.';
+        removeSampleBtn.style.display = 'none';
+        removeSampleBtn.dataset.sampleId = '';
+    }
+
+    rackSelect.addEventListener('change', () => {
+        currentRackId = rackSelect.value;
+        selectedCell = null; // Reset cell selection when rack changes
+        if (currentRackId) {
+            sampleIdInput.disabled = false;
+            sampleCommentInput.disabled = false;
+            addSampleAutoBtn.disabled = false;
+            renderRackGrid();
+            updateSampleDetails(); // Clear details initially
+        } else {
+            resetSamplePage();
+        }
+    });
+
+    function renderRackGrid() {
+        if (!currentRackId) {
+            rackDisplayDiv.innerHTML = '<p>Select a rack to view its grid.</p>';
+            return;
+        }
+        const rack = racks.find(r => r.id === currentRackId);
+        if (!rack) {
+            rackDisplayDiv.innerHTML = '<p>Error: Selected rack not found.</p>';
+            return;
+        }
+
+        rackDisplayDiv.innerHTML = ''; // Clear previous grid
+        const grid = document.createElement('div');
+        grid.className = 'rack-grid';
+        grid.style.gridTemplateRows = `repeat(${rack.rows}, auto)`;
+        grid.style.gridTemplateColumns = `repeat(${rack.cols}, auto)`;
+
+        for (let r = 0; r < rack.rows; r++) {
+            for (let c = 0; c < rack.cols; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'rack-cell';
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+
+                const sampleInCell = samples.find(s => s.rackId === currentRackId && s.row === r && s.col === c);
+
+                if (sampleInCell) {
+                    cell.classList.add('occupied');
+                    cell.textContent = sampleInCell.id; // Show sample ID in cell
+                    cell.title = `ID: ${sampleInCell.id}\nComment: ${sampleInCell.comment || 'N/A'}\nCreated: ${new Date(sampleInCell.createdAt).toLocaleString()}`;
+                } else {
+                    cell.title = `Empty Cell (${String.fromCharCode(65 + r)}${c + 1})`; // A1, B2 etc. style location
+                }
+
+                // Highlight selected cell
+                if (selectedCell && selectedCell.row === r && selectedCell.col === c) {
+                    cell.classList.add('selected');
+                }
+
+                cell.addEventListener('click', handleCellClick);
+                grid.appendChild(cell);
+            }
+        }
+        rackDisplayDiv.appendChild(grid);
+    }
+
+    function handleCellClick(event) {
+        const cell = event.currentTarget;
+        const row = parseInt(cell.dataset.row, 10);
+        const col = parseInt(cell.dataset.col, 10);
+
+        selectedCell = { row, col };
+        renderRackGrid(); // Re-render to show selection highlight
+        updateSampleDetails(row, col);
+    }
+
+    function updateSampleDetails(row, col) {
+        const sample = samples.find(s => s.rackId === currentRackId && s.row === row && s.col === col);
+        if (sample) {
+            sampleDetailsContent.innerHTML = `
+                <strong>ID:</strong> ${sample.id}<br>
+                <strong>Location:</strong> Row ${row + 1}, Col ${col + 1} (${String.fromCharCode(65 + row)}${col + 1})<br>
+                <strong>Comment:</strong> ${sample.comment || '<em>No comment</em>'}<br>
+                <strong>Created:</strong> ${new Date(sample.createdAt).toLocaleString()}<br>
+                <strong>Modified:</strong> ${new Date(sample.modifiedAt).toLocaleString()}
+            `;
+            removeSampleBtn.style.display = 'inline-block';
+            removeSampleBtn.dataset.sampleId = sample.id;
+        } else if (selectedCell && selectedCell.row === row && selectedCell.col === col) {
+             // Cell is selected but empty
+             sampleDetailsContent.innerHTML = `
+                <strong>Location:</strong> Row ${row + 1}, Col ${col + 1} (${String.fromCharCode(65 + row)}${col + 1})<br>
+                <em>Empty Cell - Ready for new sample.</em>
+             `;
+             removeSampleBtn.style.display = 'none';
+             removeSampleBtn.dataset.sampleId = '';
+             // Optionally focus the ID input when an empty cell is clicked
+             sampleIdInput.focus();
+        }
+         else {
+            // No cell selected or invalid state
+            sampleDetailsContent.innerHTML = 'Select a cell to view details or add a sample.';
+            removeSampleBtn.style.display = 'none';
+            removeSampleBtn.dataset.sampleId = '';
+        }
+    }
+
+    // --- Sample Creation/Deletion ---
+
+    // Function to add sample to a SPECIFIC cell (called by cell click or potentially modify)
+    function addSampleToCell(row, col, sampleId, comment) {
+        if (!currentRackId) {
+            alert("Please select a rack first.");
+            return false;
+        }
+        if (!sampleId) {
+            alert("Sample ID cannot be empty.");
+            sampleIdInput.focus();
+            return false;
+        }
+
+        // Check if ID already exists anywhere (should be unique globally)
+        if (samples.some(s => s.id === sampleId)) {
+            alert(`Error: Sample ID "${sampleId}" already exists.`);
+            sampleIdInput.focus();
+            return false;
+        }
+
+        // Check if cell is already occupied
+        if (samples.some(s => s.rackId === currentRackId && s.row === row && s.col === col)) {
+            alert(`Error: Cell (${row + 1}, ${col + 1}) is already occupied.`);
+            return false;
+        }
+
+        const newSample = {
+            id: sampleId,
+            rackId: currentRackId,
+            row,
+            col,
+            comment: comment || '',
+            createdAt: getCurrentTimestamp(),
+            modifiedAt: getCurrentTimestamp()
+        };
+
+        samples.push(newSample);
+        logHistory('CREATE', 'SAMPLE', newSample.id, `Sample added to Rack ${racks.find(r=>r.id===currentRackId)?.name || 'N/A'} at (${row+1}, ${col+1})`, null, newSample);
+        saveData();
+        renderRackGrid();
+        updateSampleDetails(row, col); // Update details for the newly added sample
+        // Clear inputs after successful addition
+        sampleIdInput.value = '';
+        sampleCommentInput.value = '';
+        sampleIdInput.focus(); // Ready for next scan/input
+        return true;
+    }
+
+    // Function to find the next available cell (top-to-bottom, left-to-right)
+    function findNextAvailableCell() {
+        if (!currentRackId) return null;
+        const rack = racks.find(r => r.id === currentRackId);
+        if (!rack) return null;
+
+        const occupiedCoords = new Set(
+            samples.filter(s => s.rackId === currentRackId).map(s => `${s.row}-${s.col}`)
+        );
+
+        for (let r = 0; r < rack.rows; r++) {
+            for (let c = 0; c < rack.cols; c++) {
+                if (!occupiedCoords.has(`${r}-${c}`)) {
+                    return { row: r, col: c };
+                }
+            }
+        }
+        return null; // Rack is full
+    }
+
+    // Handle "Add Sample (Next Available)" button
+    addSampleAutoBtn.addEventListener('click', () => {
+        const sampleId = sampleIdInput.value.trim();
+        const comment = sampleCommentInput.value.trim();
+
+        if (!sampleId) {
+            alert("Sample ID cannot be empty.");
+            sampleIdInput.focus();
+            return;
+        }
+
+        const nextCell = findNextAvailableCell();
+        if (!nextCell) {
+            alert("Rack is full. Cannot add sample automatically.");
+            return;
+        }
+
+        addSampleToCell(nextCell.row, nextCell.col, sampleId, comment);
+        // addSampleToCell handles saving, logging, rendering, and clearing inputs
+    });
+
+    // Handle barcode scanner input (assuming it types and presses Enter)
+    sampleIdInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && currentRackId) {
+            e.preventDefault(); // Prevent form submission if inside one
+            const sampleId = sampleIdInput.value.trim();
+            const comment = sampleCommentInput.value.trim();
+
+            if (!sampleId) return; // Don't add if ID is empty on Enter
+
+            // Decide whether to add to selected cell or auto-place
+            if (selectedCell) {
+                 const sampleInSelectedCell = samples.find(s => s.rackId === currentRackId && s.row === selectedCell.row && s.col === selectedCell.col);
+                 if (!sampleInSelectedCell) {
+                     // Add to the selected empty cell
+                     addSampleToCell(selectedCell.row, selectedCell.col, sampleId, comment);
+                 } else {
+                     // Selected cell is occupied, maybe try auto-add? Or just alert?
+                     // Let's try auto-add for convenience with scanners
+                     console.log("Selected cell occupied, attempting auto-placement...");
+                     addSampleAutoBtn.click(); // Trigger auto-add logic
+                 }
+            } else {
+                // No cell selected, use auto-placement
+                addSampleAutoBtn.click();
+            }
+        }
+    });
+
+
+    // Handle Remove Sample button click
+    removeSampleBtn.addEventListener('click', () => {
+        const sampleIdToRemove = removeSampleBtn.dataset.sampleId;
+        if (!sampleIdToRemove) return;
+
+        const sampleIndex = samples.findIndex(s => s.id === sampleIdToRemove);
+        if (sampleIndex > -1) {
+            const deletedSample = samples.splice(sampleIndex, 1)[0]; // Remove and get the deleted item
+            logHistory('DELETE', 'SAMPLE', sampleIdToRemove, `Sample removed from Rack ${racks.find(r=>r.id===deletedSample.rackId)?.name || 'N/A'} at (${deletedSample.row+1}, ${deletedSample.col+1})`, deletedSample, null);
+            saveData();
+            renderRackGrid(); // Update grid view
+            // Clear selection and details
+            selectedCell = null;
+            updateSampleDetails();
+        } else {
+            alert("Error: Sample not found for removal.");
+            // Clear button state just in case
+            removeSampleBtn.style.display = 'none';
+            removeSampleBtn.dataset.sampleId = '';
+        }
+    });
+
+
+    // --- History Log ---
+    function renderHistoryLog() {
+        historyTableBody.innerHTML = ''; // Clear existing log
+        if (history.length === 0) {
+            historyTableBody.innerHTML = '<tr><td colspan="6">No changes recorded yet.</td></tr>';
+            return;
+        }
+
+        history.forEach(entry => {
+            const row = document.createElement('tr');
+            const canRestore = (entry.action === 'DELETE' || entry.action === 'MODIFY') && entry.previousState;
+
+            row.innerHTML = `
+                <td>${new Date(entry.timestamp).toLocaleString()}</td>
+                <td>${entry.action}</td>
+                <td>${entry.entityType}</td>
+                <td>${entry.details || entry.entityId}</td>
+                <td>${generateDetails(entry)}</td>
+                <td>
+                    ${canRestore ? `<button class="restore-btn" data-history-id="${entry.id}">Restore</button>` : 'N/A'}
+                </td>
+            `;
+            historyTableBody.appendChild(row);
+        });
+
+        // Add event listeners for restore buttons
+        historyTableBody.querySelectorAll('.restore-btn').forEach(btn => {
+            btn.addEventListener('click', handleRestore);
+        });
+    }
+
+    function generateDetails(entry) {
+        // Basic details - could be expanded
+        if (entry.action === 'CREATE') return `Created with data: ${JSON.stringify(entry.currentState)}`;
+        if (entry.action === 'DELETE') return `Deleted. Previous state: ${JSON.stringify(entry.previousState)}`;
+        if (entry.action === 'MODIFY') return `Modified. Changes: ${getChanges(entry.previousState, entry.currentState)}`;
+        return 'Details unavailable';
+    }
+
+    function getChanges(prev, curr) {
+        if (!prev || !curr) return 'N/A';
+        let changes = [];
+        for (const key in curr) {
+            // Only compare relevant, non-timestamp fields for simplicity here
+            if (key !== 'createdAt' && key !== 'modifiedAt' && key !== 'id' && JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
+                changes.push(`${key}: '${prev[key]}' -> '${curr[key]}'`);
+            }
+        }
+        return changes.join(', ') || 'No significant changes detected.';
+    }
+
+
+    function handleRestore(event) {
+        const historyId = event.target.dataset.historyId;
+        const entry = history.find(h => h.id === historyId);
+
+        if (!entry || !entry.previousState) {
+            alert("Error: Cannot restore this entry. Previous state is missing.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to restore the state from ${new Date(entry.timestamp).toLocaleString()}? This may affect related data.`)) {
+            return;
+        }
+
+        let success = false;
+        let restoreActionDescription = '';
+
+        try {
+            if (entry.entityType === 'RACK') {
+                const rackId = entry.entityId;
+                if (entry.action === 'DELETE') {
+                    // Restore deleted rack - check if ID already re-exists (unlikely with timestamp IDs)
+                    if (racks.some(r => r.id === rackId)) {
+                        alert(`Cannot restore rack: A rack with ID ${rackId} already exists.`);
+                        return;
+                    }
+                    racks.push({ ...entry.previousState }); // Add it back
+                    restoreActionDescription = `Restored deleted rack: ${entry.previousState.name}`;
+                    success = true;
+                } else if (entry.action === 'MODIFY') {
+                    // Restore modified rack to previous state
+                    const rackIndex = racks.findIndex(r => r.id === rackId);
+                    if (rackIndex === -1) {
+                         // Maybe it was deleted after modification? Offer to re-add? For now, error.
+                         alert(`Cannot restore modified rack: Rack with ID ${rackId} not found. It might have been deleted later.`);
+                         return;
+                    }
+                     // **Important**: Restoring size changes might orphan samples added *after* the modification but *before* the restore.
+                     // A simple restore just puts the old data back. A more complex one would check consistency.
+                     // Let's proceed with the simple restore for now.
+                    racks[rackIndex] = { ...entry.previousState };
+                    restoreActionDescription = `Restored modified rack to previous state: ${entry.previousState.name}`;
+                    success = true;
+                }
+
+            } else if (entry.entityType === 'SAMPLE') {
+                const sampleId = entry.entityId;
+                if (entry.action === 'DELETE') {
+                    // Restore deleted sample
+                    // Check if ID re-exists
+                    if (samples.some(s => s.id === sampleId)) {
+                        alert(`Cannot restore sample: A sample with ID ${sampleId} already exists.`);
+                        return;
+                    }
+                    // Check if its rack still exists
+                    const originalRackId = entry.previousState.rackId;
+                    const rack = racks.find(r => r.id === originalRackId);
+                    if (!rack) {
+                        alert(`Cannot restore sample: Its original rack (ID: ${originalRackId}) no longer exists.`);
+                        return;
+                    }
+                     // Check if its original cell is available and within bounds
+                     const { row, col } = entry.previousState;
+                     if (row >= rack.rows || col >= rack.cols) {
+                         alert(`Cannot restore sample: Its original location (${row+1}, ${col+1}) is outside the current bounds of rack "${rack.name}".`);
+                         return;
+                     }
+                     if (samples.some(s => s.rackId === originalRackId && s.row === row && s.col === col)) {
+                         alert(`Cannot restore sample: Its original cell (${row+1}, ${col+1}) in rack "${rack.name}" is now occupied.`);
+                         return;
+                     }
+
+                    samples.push({ ...entry.previousState }); // Add it back
+                    restoreActionDescription = `Restored deleted sample: ${sampleId}`;
+                    success = true;
+
+                } else if (entry.action === 'MODIFY') {
+                    // Restore modified sample (likely just comment changes in this simple version)
+                    const sampleIndex = samples.findIndex(s => s.id === sampleId);
+                    if (sampleIndex === -1) {
+                        alert(`Cannot restore modified sample: Sample with ID ${sampleId} not found. It might have been deleted later.`);
+                        return;
+                    }
+                    samples[sampleIndex] = { ...entry.previousState }; // Revert to old data
+                    restoreActionDescription = `Restored modified sample to previous state: ${sampleId}`;
+                    success = true;
+                }
+            }
+
+            if (success) {
+                logHistory('RESTORE', entry.entityType, entry.entityId, restoreActionDescription, entry.currentState, entry.previousState); // Log the restore action itself
+                saveData();
+                // Re-render relevant parts of the UI
+                renderRackList();
+                renderRackOptions();
+                if (currentRackId) renderRackGrid();
+                updateSampleDetails(selectedCell?.row, selectedCell?.col); // Update details if a cell is selected
+                renderHistoryLog(); // Show the new restore entry
+                alert("Restore successful!");
+            } else {
+                 alert("Restore failed: Action type not supported or entity type unknown.");
+            }
+
+        } catch (error) {
+            console.error("Restore error:", error);
+            alert(`An error occurred during restore: ${error.message}`);
+        }
+    }
+
+}); // End DOMContentLoaded
