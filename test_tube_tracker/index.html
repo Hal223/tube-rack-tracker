@@ -45,66 +45,71 @@
             </div>
         </section>
 
-        <!-- Sample Management Page -->
-        <section id="samples-page" class="page">
-            <h2>Sample Management</h2>
-            <!-- This is the main flex container for the sidebar/grid layout -->
-            <div class="samples-layout">
+<!-- Sample Management Page -->
+<section id="samples-page" class="page">
+    <h2>Sample Management</h2>
+    <div class="samples-layout"> <!-- Flex container -->
 
-                <!-- === Left Sidebar === -->
-                <div class="samples-sidebar">
+        <!-- === Left Sidebar === -->
+        <div class="samples-sidebar">
 
-                    <!-- Rack Selection Area -->
-                    <div>
-                        <h3>Select Rack:</h3>
-                        <div id="rack-selection-buttons" class="rack-button-list">
-                            <!-- Placeholder text if no racks -->
-                            <p>Loading racks...</p>
-                        </div>
-                    </div>
+            <!-- Rack Selection Area -->
+            <div>
+                <h3>Select Rack:</h3>
+                <div id="rack-selection-buttons" class="rack-button-list">
+                    <p>Loading racks...</p> <!-- Placeholder -->
+                </div>
+            </div>
 
-                    <hr> <!-- Visual separator -->
 
-                    <!-- Sample Input/Add Area -->
-                    <div>
-                        <h3>Add Sample</h3>
-                        <div id="sample-controls">
-                             <label for="sample-id-input">Sample ID (Scan Barcode):</label>
-                             <input type="text" id="sample-id-input" placeholder="Scan or type ID..." disabled>
+            <!-- Sample Input/Add Area -->
+            <div>
+                <h3>Add Sample</h3>
+                <div id="sample-controls">
+                     <label for="sample-id-input">Sample ID (Scan Barcode):</label>
+                     <input type="text" id="sample-id-input" placeholder="Scan or type ID..." disabled>
 
-                             <label for="sample-comment-input">Comment (Optional):</label>
-                             <input type="text" id="sample-comment-input" placeholder="Optional comment..." disabled>
+                     <label for="sample-comment-input">Comment (Optional):</label>
+                     <input type="text" id="sample-comment-input" placeholder="Optional comment..." disabled>
 
-                             <button id="add-sample-auto-btn" disabled>Add Sample (Next Available)</button>
-                             <p><small>Or click an empty cell in the grid.</small></p>
-                        </div>
-                    </div>
+                     <button id="add-sample-auto-btn" disabled>Add Sample (Next Available)</button>
+                     <p><small>Or click an empty cell in the grid.</small></p>
+                </div>
+            </div>
 
-                    <hr> <!-- Visual separator -->
+            <hr> <!-- Visual separator -->
 
-                    <!-- Sample Details Area -->
-                    <div>
-                        <h3>Sample Details</h3>
-                        <!-- sample-info div wraps details and remove button -->
-                        <div id="sample-info">
-                            <div id="sample-details-content">Select a rack, then a cell.</div>
-                            <button id="remove-sample-btn" style="display: none; margin-top: 10px;">Remove Sample</button>
-                         </div>
-                    </div>
+            <!-- Sample Details Area -->
+            <div>
+                <h3>Sample Details</h3>
+                <div id="sample-info">
+                    <div id="sample-details-content">Select a rack, then a cell.</div>
+                    <button id="remove-sample-btn" style="display: none; margin-top: 10px;">Remove Sample</button>
+                 </div>
+            </div>
 
-                </div> <!-- End samples-sidebar -->
+        </div> <!-- End samples-sidebar -->
 
-                <!-- === Right Grid Area === -->
-                <div class="samples-grid-area">
-                    <!-- The rack grid itself will be rendered inside here -->
-                    <div id="rack-display" class="rack-grid-container">
-                        <!-- Placeholder text -->
-                        <p>Select a rack from the left to view its grid.</p>
-                    </div>
-                </div> <!-- End samples-grid-area -->
+        <!-- === Right Grid Area === -->
+        <div class="samples-grid-area">
+                    <!-- Search Area -->
+            <div>
+                <div class="search-container">
+                     <input type="search" id="sample-search-input" placeholder="Enter Sample ID...">
+                     <div id="sample-search-results" class="search-results-list">
+                         <!-- Search results appear here -->
+                     </div>
+                </div>
+            </div>
+            <hr> <!-- Visual separator -->
+            <div id="rack-display" class="rack-grid-container">
+                <p>Select a rack from the left to view its grid.</p> <!-- Placeholder -->
+            </div>
+        </div> <!-- End samples-grid-area -->
 
-            </div> <!-- End samples-layout -->
-        </section>
+    </div> <!-- End samples-layout -->
+</section>
+
         <section id="history-page" class="page">
             <h2>Change History</h2>
             <div id="history-log">

@@ -164,6 +164,29 @@ const SampleGrid = (() => {
         });
     }
 
+    function scrollCellIntoView(row, col) {
+        if (!gridDisplayElement) {
+            console.error("SampleGrid.scrollCellIntoView: gridDisplayElement not found.");
+            return;
+        }
+
+        // Find the specific cell element using data attributes
+        // Note: We query within gridDisplayElement which contains labels AND cells
+        const cellSelector = `.rack-cell[data-row="${row}"][data-col="${col}"]`;
+        const cellElement = gridDisplayElement.querySelector(cellSelector);
+
+        if (cellElement) {
+            console.log(`SampleGrid: Scrolling cell (${row}, ${col}) into view.`);
+            // Use the standard scrollIntoView method
+            cellElement.scrollIntoView({
+                behavior: 'smooth', // Use smooth scrolling
+                block: 'nearest',   // Scroll vertically to nearest edge
+                inline: 'nearest'   // Scroll horizontally to nearest edge
+            });
+        } else {
+            console.warn(`SampleGrid.scrollCellIntoView: Cell element not found for row ${row}, col ${col}. Selector: ${cellSelector}`);
+        }
+    }
 
     function clear() {
         if (gridDisplayElement) {
@@ -180,6 +203,7 @@ const SampleGrid = (() => {
         init,
         render,
         clear,
-        getColLabel // Expose if needed elsewhere, though unlikely
+        getColLabel,
+        scrollCellIntoView
     };
 })();

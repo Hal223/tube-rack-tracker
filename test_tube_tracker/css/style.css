@@ -1,0 +1,435 @@
+/* css/style.css */
+
+/* Basic Reset & Root Variables */
+:root {
+    --bg-color-light: #f4f7f6;
+    --text-color-light: #333;
+    --primary-color-light: #a7c4bc; /* Muted teal/green */
+    --secondary-color-light: #e0e0e0;
+    --accent-color-light: #7f9183; /* Muted darker green */
+    --border-color-light: #ccc;
+    --hover-bg-light: #dbe8e4;
+    --modal-bg-light: rgba(0, 0, 0, 0.4);
+    --cell-empty-light: #e8e8e8;
+    --cell-occupied-light: #b8d8d1;
+    --cell-selected-light: #f0e68c; /* Khaki for selection */
+
+    --bg-color-dark: #2c3e50; /* Dark slate blue */
+    --text-color-dark: #ecf0f1; /* Light gray/white */
+    --primary-color-dark: #34495e; /* Darker slate */
+    --secondary-color-dark: #4a637a;
+    --accent-color-dark: #95a5a6; /* Muted gray */
+    --border-color-dark: #566573;
+    --hover-bg-dark: #4e667d;
+    --modal-bg-dark: rgba(255, 255, 255, 0.2);
+    --cell-empty-dark: #405568;
+    --cell-occupied-dark: #5f827b;
+    --cell-selected-dark: #7a7a3a; /* Darker Khaki */
+
+    /* Default to light mode */
+    --bg-color: var(--bg-color-light);
+    --text-color: var(--text-color-light);
+    --primary-color: var(--primary-color-light);
+    --secondary-color: var(--secondary-color-light);
+    --accent-color: var(--accent-color-light);
+    --border-color: var(--border-color-light);
+    --hover-bg: var(--hover-bg-light);
+    --modal-bg: var(--modal-bg-light);
+    --cell-empty: var(--cell-empty-light);
+    --cell-occupied: var(--cell-occupied-light);
+    --cell-selected: var(--cell-selected-light);
+
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --border-radius: 4px;
+    --transition-speed: 0.3s ease;
+
+    /* Define base sizes for grid elements */
+    --cell-size: 50px;
+    --row-label-width: 30px;
+    --col-label-height: 30px;
+}
+
+/* Update sizes for smaller screens */
+@media (max-width: 768px) {
+    :root {
+        --cell-size: 40px;
+        --row-label-width: 25px;
+        --col-label-height: 25px;
+    }
+}
+
+
+body.dark-mode {
+    --bg-color: var(--bg-color-dark);
+    --text-color: var(--text-color-dark);
+    --primary-color: var(--primary-color-dark);
+    --secondary-color: var(--secondary-color-dark);
+    --accent-color: var(--accent-color-dark);
+    --border-color: var(--border-color-dark);
+    --hover-bg: var(--hover-bg-dark);
+    --modal-bg: var(--modal-bg-dark);
+    --cell-empty: var(--cell-empty-dark);
+    --cell-occupied: var(--cell-occupied-dark);
+    --cell-selected: var(--cell-selected-dark);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    transition: background-color var(--transition-speed), color var(--transition-speed);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 2px solid var(--border-color);
+}
+
+header h1 {
+    margin-right: auto;
+    padding-right: 20px;
+}
+
+header .controls {
+    margin-left: 1rem;
+}
+
+nav {
+    margin-left: 1rem;
+}
+
+nav button, header .controls button, button {
+    background-color: var(--accent-color);
+    color: var(--bg-color);
+    border: none;
+    padding: 0.6rem 1rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    transition: background-color var(--transition-speed);
+    font-size: 0.9rem;
+}
+
+nav button:hover, header .controls button:hover, button:hover {
+    background-color: var(--hover-bg);
+    color: var(--text-color);
+}
+
+button:disabled {
+    background-color: var(--secondary-color);
+    cursor: not-allowed;
+    color: #999;
+}
+
+main {
+    flex-grow: 1;
+    padding: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+footer {
+    text-align: center;
+    padding: 1rem;
+    margin-top: 1rem;
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.8rem;
+}
+
+/* Page Visibility */
+.page {
+    display: none;
+}
+.page.active {
+    display: block;
+}
+
+/* Rack Management */
+#rack-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.rack-card {
+    background-color: var(--secondary-color);
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    flex: 0 1 230px;
+    display: flex;
+    flex-direction: column;
+    overflow-wrap: break-word;
+}
+
+.rack-card h3 { margin-bottom: 0.5rem; color: var(--accent-color); }
+.rack-card p { font-size: 0.9rem; margin-bottom: 0.5rem; flex-grow: 1; }
+.rack-card p:last-of-type { margin-bottom: 0.8rem; }
+.rack-card .actions { margin-top: auto; padding-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.rack-card .actions button { padding: 0.3rem 0.6rem; font-size: 0.8rem; flex-grow: 1; }
+
+/* Modal Styles */
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: var(--modal-bg); }
+.modal-content { background-color: var(--bg-color); margin: 15% auto; padding: 25px; border: 1px solid var(--border-color); width: 80%; max-width: 500px; border-radius: var(--border-radius); position: relative; }
+.close-btn { color: var(--text-color); position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+.close-btn:hover, .close-btn:focus { color: #f44336; text-decoration: none; }
+#rack-form div { margin-bottom: 1rem; }
+
+label { display: block; margin-bottom: 0.3rem; font-weight: bold; }
+input[type="text"], input[type="number"], select { width: 100%; padding: 0.7rem; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-color); border-radius: var(--border-radius); font-size: 1rem; }
+
+/* === Sample Management Page Layout === */
+.samples-layout { display: flex; flex-wrap: wrap; gap: 25px; margin-top: 1rem; }
+.samples-sidebar { flex: 0 0 320px; display: flex; flex-direction: column; gap: 1rem; border-right: 1px solid var(--border-color); padding-right: 20px; min-width: 280px; }
+
+/* --- THIS IS THE KEY AREA --- */
+.samples-grid-area {
+    flex: 1; /* Take remaining horizontal space */
+    min-width: 250px;
+    display: flex; /* Use flexbox */
+    flex-direction: column; /* Stack search and grid VERTICALLY */
+    gap: 1.5rem; /* Space between search and grid */
+    /* align-items: flex-start; */ /* REMOVE or ensure default 'stretch' */
+}
+/* --- END KEY AREA --- */
+
+.samples-sidebar > div { /* No extra styles needed currently */ }
+.samples-sidebar h3 { margin-bottom: 0.5rem; color: var(--accent-color); margin-top: 0; }
+.samples-sidebar hr { border: none; border-top: 1px solid var(--border-color); margin: 0.5rem 0; width: 100%; }
+
+/* Rack Selection Buttons */
+.rack-button-list { display: flex; flex-direction: column; gap: 6px; max-height: 250px; overflow-y: auto; overflow-x: hidden; padding: 5px 0; }
+.rack-button-list p { font-style: italic; color: var(--accent-color); padding: 0.5rem; }
+.rack-select-btn { display: block; width: 100%; text-align: left; padding: 0.6rem 0.9rem; font-size: 0.9rem; background-color: var(--secondary-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--border-radius); cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.rack-select-btn:hover { background-color: var(--hover-bg); border-color: var(--accent-color); }
+.rack-select-btn.active { background-color: var(--accent-color); color: var(--bg-color); font-weight: bold; border-color: var(--accent-color); }
+
+/* --- Search Container (within grid area) --- */
+.grid-search-wrapper {
+    width: 100%;
+    max-width: 500px; /* Optional: Limit max width */
+}
+
+#sample-search-input {
+    width: 100%;
+    /* Slightly more vertical padding */
+    padding: 0.7rem 1.1rem; /* Changed */
+    font-size: 0.95rem; /* Slightly larger font */ /* Changed */
+    font-family: inherit; /* Ensure consistent font */ /* Added */
+    border: 1px solid var(--border-color);
+    border-radius: 20px; /* More rounded */ /* Changed */
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Add transition */
+    outline: none; /* Remove default browser outline */
+}
+/* Focus state */
+#sample-search-input:focus {
+    border-color: var(--accent-color); /* Highlight border */
+    box-shadow: 0 0 0 2px rgba(var(--accent-color-rgb, 127, 145, 131), 0.3); /* Subtle glow - needs RGB version */
+    /* Note: Add --accent-color-rgb to :root if using box-shadow */
+}
+/* Placeholder Styling */
+#sample-search-input::placeholder {
+    color: #a0a0a0; /* Slightly lighter grey */ /* Changed */
+    font-style: italic;
+    opacity: 0.9; /* Changed */
+}
+/* Dark mode placeholder */
+body.dark-mode #sample-search-input::placeholder {
+    color: #95a5a6; /* Match dark accent */ /* Changed */
+}
+/* Optional: Style for browser's clear button */
+#sample-search-input::-webkit-search-cancel-button { cursor: pointer; }
+
+/* --- Search Results List --- */
+.search-results-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius); /* Standard radius */
+    background-color: var(--bg-color);
+    /* Increased margin-top for more space below input */
+    margin-top: 8px; /* Changed from 5px */
+    padding: 5px 0; /* Add some vertical padding inside */ /* Added */
+}
+
+/* Hide results list when empty */
+.search-results-list:empty { display: none; border: none; }
+
+
+.search-result-item {
+    padding: 0.7rem 1rem; /* Slightly increased padding */ /* Changed */
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover { background-color: var(--hover-bg); }
+.search-result-item strong { color: var(--accent-color); }
+.search-result-item small { display: block; font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+
+/* Sample Input Controls (in sidebar) */
+#sample-controls div { margin-bottom: 1rem; }
+#sample-controls label { margin-top: 0.5rem; display: block; }
+#sample-controls p { margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.8; }
+
+/* Sample Details Area (in sidebar) */
+#sample-details-content { background-color: var(--secondary-color); padding: 10px; border-radius: var(--border-radius); min-height: 50px; margin-bottom: 10px; font-size: 0.9rem; word-wrap: break-word; }
+
+/* --- Styling for the rack display area (#rack-display) --- */
+#rack-display {
+    overflow: auto;
+    max-width: 100%; /* Constrain width */
+    display: grid;
+    padding: 0;
+    background-color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    /* REMOVED width: fit-content; */ /* Allow stretching */
+    width: 100%; /* Explicitly set width to fill container */ /* Added */
+    border-spacing: 0;
+    border-collapse: collapse;
+    /* margin-top is handled by parent gap */
+}
+/* Placeholder text */
+#rack-display > p { padding: 20px; text-align: center; color: var(--accent-color); font-style: italic; grid-column: 1 / -1; grid-row: 1 / -1; }
+
+/* --- Labels and Corner --- */
+.grid-label, .grid-corner {
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    font-weight: bold;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: 1px solid var(--border-color);
+    position: sticky;
+    z-index: 1;
+    box-sizing: border-box;
+}
+.grid-label-col { top: 0; width: var(--cell-size); height: var(--col-label-height); }
+.grid-label-row { left: 0; width: var(--row-label-width); height: var(--cell-size); }
+.grid-corner { top: 0; left: 0; z-index: 2; background-color: var(--accent-color); width: var(--row-label-width); height: var(--col-label-height); }
+
+/* --- Rack Cell --- */
+.rack-cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: 1px solid var(--border-color);
+    background-color: var(--cell-empty);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+    transition: background-color var(--transition-speed);
+    box-sizing: border-box;
+}
+.rack-cell.occupied { background-color: var(--cell-occupied); font-weight: bold; }
+.rack-cell.selected { background-color: var(--cell-selected); outline: 2px solid var(--accent-color); outline-offset: -2px; }
+.rack-cell:hover { filter: brightness(90%); }
+
+/* History Page */
+#history-log {
+    overflow-x: auto;
+    margin-top: 1rem;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+#history-log table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    border: none; /* Remove table border, rely on cell borders */
+}
+#history-log th, #history-log td {
+    border: 1px solid var(--border-color);
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    font-size: 0.9rem;
+    vertical-align: top;
+    border-bottom: none;
+    border-right: none;
+}
+#history-log th:last-child, #history-log td:last-child { border-right: 1px solid var(--border-color); }
+#history-log tr:last-child td { border-bottom: 1px solid var(--border-color); }
+
+/* History Column Specific Styles */
+#history-log th:nth-child(1), #history-log td:nth-child(1) { white-space: nowrap; width: 160px; } /* Timestamp */
+#history-log th:nth-child(2), #history-log td:nth-child(2), #history-log th:nth-child(3), #history-log td:nth-child(3) { width: 80px; white-space: nowrap; } /* Action, Type */
+#history-log th:nth-child(4), #history-log td:nth-child(4) { min-width: 150px; max-width: 250px; overflow-wrap: break-word; word-break: break-all; } /* ID/Name */
+#history-log th:nth-child(5), #history-log td:nth-child(5) { min-width: 250px; max-width: 450px; overflow-wrap: break-word; word-break: break-all; } /* Details */
+#history-log th:nth-child(6), #history-log td:nth-child(6) { text-align: center; width: 90px; white-space: nowrap; } /* Restore */
+
+#history-log th {
+    background-color: var(--primary-color);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-top: none;
+    border-left: none;
+}
+#history-log th:first-child { border-left: 1px solid var(--border-color); }
+#history-log td:first-child { border-left: 1px solid var(--border-color); }
+
+#history-log tr:nth-child(even) td { background-color: var(--secondary-color); }
+#history-log tr:hover td { background-color: var(--hover-bg); }
+#history-log button { padding: 0.2rem 0.5rem; font-size: 0.8rem; white-space: nowrap; }
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+    /* :root variables are updated via the media query at the top */
+    /* Header adjustments */
+    header { flex-direction: column; align-items: flex-start; }
+    header h1 { margin-bottom: 0.5rem; }
+    header .controls, header nav { margin-left: 0; margin-top: 0.5rem; width: 100%; display: flex; justify-content: space-around; }
+    nav button, header .controls button { margin-left: 0; flex-grow: 1; margin: 0 0.2rem; }
+    /* Modal adjustments */
+    .modal-content { width: 90%; margin: 10% auto; }
+    /* Sample page sidebar adjustments */
+    .samples-sidebar { flex: 1 1 100%; border-right: none; border-bottom: 1px solid var(--border-color); padding-right: 0; padding-bottom: 20px; margin-bottom: 20px; min-width: unset; }
+    /* Sample page grid area adjustments */
+    .samples-grid-area { gap: 1rem; } /* Reduce gap */
+    .grid-search-wrapper { max-width: none; } /* Allow search full width */
+    #sample-search-input { border-radius: 20px; padding: 0.6rem 1rem; font-size: 0.9rem; } /* Adjust search input */
+    .search-results-list { margin-top: 5px; } /* Adjust results margin */
+    /* Cell/Label font size adjustment */
+    .rack-cell { font-size: 0.6rem; }
+    .grid-label { font-size: 0.7rem; }
+}
+
+#search-container{
+ white-space: pre-wrap;   
+}
