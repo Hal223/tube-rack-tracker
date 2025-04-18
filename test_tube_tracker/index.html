@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TubeRack Organizer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>TubeRack Organizer</h1>
+        <div class="controls">
+            <button id="theme-toggle">Toggle Dark Mode</button>
+        </div>
+        <nav>
+            <button data-page="racks">Rack Management</button>
+            <button data-page="samples">Sample Management</button>
+            <button data-page="history">History Log</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Initial Loading Message (will be replaced by main.js) -->
+        <h2>Loading data...</h2>
+
+        <!-- Structure that main.js will inject after loading -->
+        <!-- This part is commented out here but represents what main.js adds -->
+        
+        <section id="racks-page" class="page">
+            <h2>Rack Management</h2>
+            <button id="add-rack-btn">Create New Rack</button>
+            <div id="rack-list"></div>
+            <div id="rack-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close-btn">×</span>
+                    <h3 id="rack-modal-title">Create Rack</h3>
+                    <form id="rack-form">
+                        <input type="hidden" id="rack-id-input">
+                        <div><label for="rack-name">Name:</label><input type="text" id="rack-name" required></div>
+                        <div><label for="rack-rows">Rows:</label><input type="number" id="rack-rows" min="1" required></div>
+                        <div><label for="rack-cols">Columns:</label><input type="number" id="rack-cols" min="1" required></div>
+                        <button type="submit">Save Rack</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+<!-- Sample Management Page -->
+<section id="samples-page" class="page">
+    <h2>Sample Management</h2>
+    <div class="samples-layout"> <!-- Flex container -->
+
+        <!-- === Left Sidebar === -->
+        <div class="samples-sidebar">
+
+            <!-- Rack Selection Area -->
+            <div>
+                <h3>Select Rack:</h3>
+                <div id="rack-selection-buttons" class="rack-button-list">
+                    <p>Loading racks...</p> <!-- Placeholder -->
+                </div>
+            </div>
+
+
+            <!-- Sample Input/Add Area -->
+            <div>
+                <h3>Add Sample</h3>
+                <div id="sample-controls">
+                     <label for="sample-id-input">Sample ID (Scan Barcode):</label>
+                     <input type="text" id="sample-id-input" placeholder="Scan or type ID..." disabled>
+
+                     <label for="sample-comment-input">Comment (Optional):</label>
+                     <input type="text" id="sample-comment-input" placeholder="Optional comment..." disabled>
+
+                     <button id="add-sample-auto-btn" disabled>Add Sample (Next Available)</button>
+                     <p><small>Or click an empty cell in the grid.</small></p>
+                </div>
+            </div>
+
+            <hr> <!-- Visual separator -->
+
+            <!-- Sample Details Area -->
+            <div>
+                <h3>Sample Details</h3>
+                <div id="sample-info">
+                    <div id="sample-details-content">Select a rack, then a cell.</div>
+                    <button id="remove-sample-btn" style="display: none; margin-top: 10px;">Remove Sample</button>
+                 </div>
+            </div>
+
+        </div> <!-- End samples-sidebar -->
+
+        <!-- === Right Grid Area === -->
+        <div class="samples-grid-area">
+                    <!-- Search Area -->
+            <div>
+                <div class="search-container">
+                     <input type="search" id="sample-search-input" placeholder="Enter Sample ID...">
+                     <div id="sample-search-results" class="search-results-list">
+                         <!-- Search results appear here -->
+                     </div>
+                </div>
+            </div>
+            <hr> <!-- Visual separator -->
+            <div id="rack-display" class="rack-grid-container">
+                <p>Select a rack from the left to view its grid.</p> <!-- Placeholder -->
+            </div>
+        </div> <!-- End samples-grid-area -->
+
+    </div> <!-- End samples-layout -->
+</section>
+
+        <section id="history-page" class="page">
+            <h2>Change History</h2>
+            <div id="history-log">
+                <table>
+                    <thead><tr><th>Timestamp</th><th>Action</th><th>Type</th><th>ID/Name</th><th>Details</th><th>Restore</th></tr></thead>
+                    <tbody id="history-table-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Local TubeRack Organizer</p>
+    </footer>
+
+    <!-- Load scripts in order of dependency -->
+    <script src="js/config.js"></script>
+    <script src="js/dataStore.js"></script>
+    <script src="js/uiUtils.js"></script>
+    <script src="js/rackManager.js"></script>
+    <script src="js/sampleGrid.js"></script>
+    <script src="js/sampleControls.js"></script>
+    <script src="js/sampleManager.js"></script> <!-- Orchestrator last -->
+    <script src="js/historyManager.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
+</body>
+</html>
